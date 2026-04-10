@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>When are we free?</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg2: #f5f5f3;
+      --bg3: #eeede8;
+      --text: #1a1a1a;
+      --text2: #6b6b68;
+      --border: rgba(0,0,0,0.12);
+      --border2: rgba(0,0,0,0.22);
+      --radius: 8px;
+      --radius-lg: 12px;
+      --accent: #378ADD;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1e1c;
+        --bg2: #2a2a28;
+        --bg3: #333330;
+        --text: #f0ede6;
+        --text2: #9a9994;
+        --border: rgba(255,255,255,0.1);
+        --border2: rgba(255,255,255,0.2);
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg3);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .card {
+      background: var(--bg);
+      border-radius: var(--radius-lg);
+      border: 0.5px solid var(--border);
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      color: var(--text);
+    }
+
+    .name-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      min-width: 140px;
+      height: 38px;
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 0 12px;
+      font-size: 14px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+    }
+
+    input[type="text"]:focus { border-color: var(--accent); }
+
+    button {
+      height: 38px;
+      padding: 0 16px;
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius);
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    button:hover { background: var(--bg2); }
+    button:active { transform: scale(0.98); }
+
+    .avatar-list { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.25rem; min-height: 34px; }
+
+    .avatar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px 4px 6px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 2px solid transparent;
+      user-select: none;
+      transition: border-color 0.1s;
+    }
+
+    .avatar.active { border-color: var(--accent); }
+
+    .avatar-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .nav-btn {
+      background: transparent;
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .month-label { font-size: 16px; font-weight: 500; }
+
+    .dow {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+
+    .dow-label {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text2);
+      padding: 4px 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: 0.5px solid var(--border);
+      position: relative;
+      transition: transform 0.08s;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cell.empty { border: none; background: transparent; cursor: default; }
+    .cell.past { opacity: 0.3; cursor: default; pointer-events: none; }
+    .cell:not(.empty):not(.past):hover { transform: scale(1.05); border-color: var(--border2); }
+    .cell.selected-me { background: #E6F1FB; border-color: #378ADD; }
+    .cell.today .day-num { color: var(--accent); font-weight: 600; }
+
+    @media (prefers-color-scheme: dark) {
+      .cell.selected-me { background: #0c3a5a; border-color: #378ADD; }
+    }
+
+    .dot-row {
+      display: flex;
+      gap: 2px;
+      margin-top: 3px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .dot { width: 5px; height: 5px; border-radius: 50%; }
+
+    .legend {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 0.5px solid var(--border);
+    }
+
+    .legend-title {
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 8px;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 6px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      background: var(--bg2);
+      border-radius: var(--radius);
+      padding: 6px 10px;
+    }
+
+    .tip {
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 1rem;
+      min-height: 18px;
+    }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 0.5px solid var(--border);
+    }
+
+    .sync-status {
+      font-size: 12px;
+      color: var(--text2);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .sync-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+
+    .sync-dot.live { background: #639922; }
+
+    .clear-btn {
+      background: transparent;
+      border: none;
+      font-size: 12px;
+      color: var(--text2);
+      cursor: pointer;
+      text-decoration: underline;
+      height: auto;
+      padding: 0;
+    }
+
+    .clear-btn:hover { color: var(--text); background: transparent; }
+
+    /* Setup banner */
+    #setupBanner {
+      background: #FAEEDA;
+      border: 0.5px solid #EF9F27;
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #412402;
+    }
+
+    #setupBanner strong { font-weight: 600; }
+    #setupBanner code {
+      background: rgba(0,0,0,0.08);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    #setupBanner a { color: #633806; }
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <h1>When are we free? </h1>
+
+  <div class="name-row">
+    <input type="text" id="nameInput" placeholder="Your name..." maxlength="20" />
+    <button onclick="addPerson()">+ Add me</button>
+  </div>
+
+  <div class="avatar-list" id="avatarList"></div>
+
+  <p class="tip" id="tip">Add your name above, then click days you're available.</p>
+
+  <div class="top">
+    <button class="nav-btn" onclick="changeMonth(-1)">&#8592;</button>
+    <span class="month-label" id="monthLabel"></span>
+    <button class="nav-btn" onclick="changeMonth(1)">&#8594;</button>
+  </div>
+
+  <div class="dow" id="dowRow"></div>
+  <div class="grid" id="calGrid"></div>
+
+  <div class="legend" id="legend" style="display:none">
+    <div class="legend-title">Best days — most people free:</div>
+    <div class="legend-grid" id="legendGrid"></div>
+  </div>
+
+  <div class="footer">
+    <div class="sync-status">
+      <div class="sync-dot" id="syncDot"></div>
+      <span id="syncLabel">Not connected</span>
+    </div>
+    <button class="clear-btn" onclick="clearAll()">Reset everything</button>
+  </div>
+</div>
+
+<!-- Firebase v9 compat (CDN) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<script>
+// ─────────────────────────────────────────────
+//  🔧 REPLACE THIS with your Firebase config
+// ─────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCtqH7U0H5TVs4vcbwrbOSD0ORBBzSRzcE",
+  authDomain: "trip-planner-zq.firebaseapp.com",
+  databaseURL: "https://trip-planner-zq-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "trip-planner-zq",
+  storageBucket: "trip-planner-zq.firebasestorage.app",
+  messagingSenderId: "285843811420",
+  appId: "1:285843811420:web:ed4c9c9c99c150bc98ca99",
+  measurementId: "G-T90V84FDQV"
+};
+// ─────────────────────────────────────────────
+
+const COLORS = [
+  {bg:'#E6F1FB', dot:'#378ADD', text:'#0C447C'},
+  {bg:'#EAF3DE', dot:'#639922', text:'#27500A'},
+  {bg:'#FAEEDA', dot:'#BA7517', text:'#633806'},
+  {bg:'#FBEAF0', dot:'#D4537E', text:'#72243E'},
+  {bg:'#EEEDFE', dot:'#7F77DD', text:'#3C3489'},
+  {bg:'#E1F5EE', dot:'#1D9E75', text:'#085041'},
+  {bg:'#FAECE7', dot:'#D85A30', text:'#712B13'},
+  {bg:'#FCEBEB', dot:'#E24B4A', text:'#791F1F'},
+];
+
+let db = null;
+let dbRef = null;
+let people = [];       // [{name}]
+let availability = {}; // {name: [dateStr, ...]}
+let activePerson = null;
+let now = new Date();
+let viewYear = now.getFullYear();
+let viewMonth = now.getMonth();
+
+// Init Firebase
+try {
+  if (firebaseConfig.apiKey !== "REPLACE_ME") {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    dbRef = db.ref('availability_app');
+    dbRef.on('value', snap => {
+      const data = snap.val() || {};
+      people = data.people || [];
+      availability = data.availability || {};
+      setSync(true);
+      render();
+    });
+    setSync(false);
+  }
+} catch(e) {
+  console.warn('Firebase init failed:', e);
+}
+
+function setSync(live) {
+  document.getElementById('syncDot').className = 'sync-dot' + (live ? ' live' : '');
+  document.getElementById('syncLabel').textContent = live ? 'Live sync on' : 'Connecting...';
+}
+
+function save() {
+  if (dbRef) {
+    dbRef.set({ people, availability });
+  }
+}
+
+function colorFor(i) { return COLORS[i % COLORS.length]; }
+
+function initials(name) {
+  return name.trim().split(/\s+/).map(w => w[0].toUpperCase()).slice(0, 2).join('');
+}
+
+function addPerson() {
+  const inp = document.getElementById('nameInput');
+  const name = inp.value.trim();
+  if (!name) { inp.focus(); return; }
+  const existIdx = people.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+  if (existIdx >= 0) { activePerson = existIdx; render(); inp.value = ''; return; }
+  people.push({ name });
+  activePerson = people.length - 1;
+  if (!availability[name]) availability[name] = [];
+  inp.value = '';
+  save();
+}
+
+function selectPerson(idx) {
+  activePerson = (activePerson === idx) ? null : idx;
+  render();
+}
+
+function clearAll() {
+  if (!confirm('Reset all names and availability for everyone?')) return;
+  people = []; activePerson = null; availability = {};
+  save(); render();
+}
+
+function changeMonth(d) {
+  viewMonth += d;
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  if (viewMonth < 0)  { viewMonth = 11; viewYear--; }
+  render();
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function toDateStr(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
+
+function toggleDay(dateStr) {
+  if (activePerson === null) { document.getElementById('nameInput').focus(); return; }
+  const name = people[activePerson].name;
+  if (!availability[name]) availability[name] = [];
+  const arr = availability[name];
+  const i = arr.indexOf(dateStr);
+  if (i >= 0) arr.splice(i, 1); else arr.push(dateStr);
+  save();
+  render();
+}
+
+function render() {
+  const todayStr = toDateStr(now.getFullYear(), now.getMonth(), now.getDate());
+
+  document.getElementById('monthLabel').textContent =
+    new Date(viewYear, viewMonth, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  document.getElementById('dowRow').innerHTML =
+    ['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => `<div class="dow-label">${d}</div>`).join('');
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  let html = '';
+  for (let i = 0; i < firstDay; i++) html += `<div class="cell empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = toDateStr(viewYear, viewMonth, d);
+    const isPast = ds < todayStr;
+    const presentPeople = people.filter(p => (availability[p.name] || []).includes(ds));
+    const isMine = activePerson !== null && (availability[people[activePerson]?.name] || []).includes(ds);
+    let cls = 'cell';
+    if (isPast) cls += ' past';
+    if (isMine && !isPast) cls += ' selected-me';
+    if (ds === todayStr) cls += ' today';
+    const dots = presentPeople.map(p => {
+      const idx = people.indexOf(p);
+      return `<div class="dot" style="background:${colorFor(idx).dot}"></div>`;
+    }).join('');
+    const click = isPast ? '' : `onclick="toggleDay('${ds}')"`;
+    html += `<div class="${cls}" ${click}>
+      <span class="day-num">${d}</span>
+      <div class="dot-row">${dots}</div>
+    </div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+
+  document.getElementById('avatarList').innerHTML = people.map((p, i) => {
+    const c = colorFor(i);
+    return `<div class="avatar${activePerson === i ? ' active' : ''}"
+      style="background:${c.bg}" onclick="selectPerson(${i})">
+      <div class="avatar-circle" style="background:${c.dot}">${initials(p.name)}</div>
+      <span style="color:${c.text}">${p.name}</span>
+    </div>`;
+  }).join('');
+
+  const tip = document.getElementById('tip');
+  if (!db) tip.textContent = 'Configure Firebase to enable live sync (see setup note above).';
+  else if (people.length === 0) tip.textContent = 'Add your name above, then click days you\'re free.';
+  else if (activePerson === null) tip.textContent = 'Select your name above to mark or change your availability.';
+  else tip.textContent = `Marking days for ${people[activePerson].name} — tap to toggle.`;
+
+  renderLegend(todayStr, daysInMonth);
+}
+
+function renderLegend(todayStr, daysInMonth) {
+  if (people.length < 2) { document.getElementById('legend').style.display = 'none'; return; }
+  let scores = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = toDateStr(viewYear, viewMonth, d);
+    if (ds < todayStr) continue;
+    const count = people.filter(p => (availability[p.name] || []).includes(ds)).length;
+    if (count > 0) scores.push({ ds, count });
+  }
+  scores.sort((a, b) => b.count - a.count);
+  const top = scores.filter(s => s.count === scores[0]?.count).slice(0, 6);
+  if (!top.length) { document.getElementById('legend').style.display = 'none'; return; }
+  document.getElementById('legend').style.display = '';
+  const fmt = ds => {
+    const [y, m, d] = ds.split('-');
+    return new Date(+y, +m - 1, +d).toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+  document.getElementById('legendGrid').innerHTML = top.map(s => {
+    const ppl = people.filter(p => (availability[p.name] || []).includes(s.ds));
+    const dots = ppl.map(p => {
+      const idx = people.indexOf(p);
+      return `<div class="dot" style="background:${colorFor(idx).dot};width:7px;height:7px"></div>`;
+    }).join('');
+    return `<div class="legend-item">
+      <div style="display:flex;gap:3px">${dots}</div>
+      <span>${fmt(s.ds)}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text2)">${s.count}/${people.length}</span>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') addPerson(); });
+
+render();
+</script>
+</body>
+</html>
