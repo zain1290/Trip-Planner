@@ -561,31 +561,81 @@ function render() {
 
 function renderLegend(todayStr, daysInMonth) {
   if (people.length < 2) { document.getElementById('legend').style.display = 'none'; return; }
-  let scores = [];
-  for (let d = 1; d <= daysInMonth; d++) {
-    const ds = toDateStr(viewYear, viewMonth, d);
-    if (ds < todayStr) continue;
-    const count = people.filter(p => (availability[p.name] || []).includes(ds)).length;
-    if (count > 0) scores.push({ ds, count });
+  
+  const otherPeople = activePerson !== null ? people.filter((p, i) => i !== activePerson) : people;
+  if (otherPeople.length === 0) { document.getElementById('legend').style.display = 'none'; return; }
+
+  // Extract all future dates where ALL other people are free across all months
+  let allFreeDates = [];
+  const someOtherPersonStr = otherPeople[0].name;
+  if (!availability[someOtherPersonStr]) { document.getElementById('legend').style.display = 'none'; return; }
+  
+  const potentialDates = availability[someOtherPersonStr].filter(d => d >= todayStr);
+  for (const ds of potentialDates) {
+    if (otherPeople.every(p => (availability[p.name] || []).includes(ds))) {
+      allFreeDates.push(ds);
+    }
   }
-  scores.sort((a, b) => b.count - a.count);
-  const top = scores.filter(s => s.count === scores[0]?.count).slice(0, 6);
+
+  if (allFreeDates.length === 0) {
+    document.getElementById('legend').style.display = 'none';
+    return;
+  }
+
+  // Sort dates chronologically
+  allFreeDates.sort();
+
+  // Group dates into contiguous periods
+  let periods = [];
+  let currentPeriod = [allFreeDates[0]];
+
+  for (let i = 1; i < allFreeDates.length; i++) {
+    const prevDate = new Date(allFreeDates[i-1]);
+    const currDate = new Date(allFreeDates[i]);
+    const diffDays = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) {
+      currentPeriod.push(allFreeDates[i]);
+    } else {
+      periods.push(currentPeriod);
+      currentPeriod = [allFreeDates[i]];
+    }
+  }
+  periods.push(currentPeriod);
+
+  // Sort periods by duration (longest first)
+  periods.sort((a, b) => b.length - a.length);
+
+  // Take top 4
+  const top = periods.slice(0, 4);
+
   if (!top.length) { document.getElementById('legend').style.display = 'none'; return; }
   document.getElementById('legend').style.display = '';
+
+  const legendTitle = document.querySelector('.legend-title');
+  if (legendTitle) {
+    legendTitle.textContent = activePerson !== null ? "Top periods when everyone else is free:" : "Top periods when everyone is free:";
+  }
+
   const fmt = ds => {
     const [y, m, d] = ds.split('-');
-    return new Date(+y, +m - 1, +d).toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' });
+    return new Date(+y, +m - 1, +d).toLocaleDateString('default', { month: 'short', day: 'numeric' });
   };
-  document.getElementById('legendGrid').innerHTML = top.map(s => {
-    const ppl = people.filter(p => (availability[p.name] || []).includes(s.ds));
-    const dots = ppl.map(p => {
+
+  document.getElementById('legendGrid').innerHTML = top.map(period => {
+    const start = period[0];
+    const end = period[period.length - 1];
+    const label = period.length === 1 ? fmt(start) : `${fmt(start)} - ${fmt(end)}`;
+    
+    const dots = otherPeople.map(p => {
       const idx = people.indexOf(p);
-      return `<div class="dot" style="background:${colorFor(idx).dot};width:7px;height:7px"></div>`;
+      return `<div class="dot" style="background:${colorFor(idx).dot};width:7px;height:7px" title="${p.name}"></div>`;
     }).join('');
-    return `<div class="legend-item">
-      <div style="display:flex;gap:3px">${dots}</div>
-      <span>${fmt(s.ds)}</span>
-      <span style="margin-left:auto;font-size:11px;color:var(--text2)">${s.count}/${people.length}</span>
+
+    return `<div class="legend-item" style="grid-column: span 2;">
+      <div style="display:flex;gap:3px;margin-right:8px;">${dots}</div>
+      <span style="font-weight:500;">${label}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text2)">${period.length} day${period.length > 1 ? 's' : ''}</span>
     </div>`;
   }).join('');
 }
