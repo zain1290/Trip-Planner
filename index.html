@@ -301,7 +301,17 @@
   </style>
 </head>
 <body>
-<div class="card">
+
+<div class="card" id="passcodeCard">
+  <h1>Trip Planner Access</h1>
+  <div class="name-row">
+    <input type="password" id="passcodeInput" placeholder="Enter passcode" />
+    <button onclick="checkPasscode()">Unlock</button>
+  </div>
+  <p id="passcodeError" style="color:#D4537E; font-size:13px; display:none;">Incorrect passcode. Hint: "spooners"</p>
+</div>
+
+<div class="card" id="mainContent" style="display:none;">
 
   <h1>When are we free? </h1>
 
@@ -437,6 +447,17 @@ function clearAll() {
   save(); render();
 }
 
+function checkPasscode() {
+  const code = document.getElementById('passcodeInput').value;
+  if (code === "spooners") {
+    document.getElementById('passcodeCard').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+  } else {
+    document.getElementById('passcodeError').style.display = 'block';
+  }
+}
+document.getElementById('passcodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkPasscode(); });
+
 function changeMonth(d) {
   viewMonth += d;
   if (viewMonth > 11) { viewMonth = 0; viewYear++; }
@@ -447,15 +468,43 @@ function changeMonth(d) {
 function pad(n) { return String(n).padStart(2, '0'); }
 function toDateStr(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
 
-function toggleDay(dateStr) {
+let isDragging = false;
+let dragMode = true; // true if adding, false if removing
+
+window.addEventListener('mouseup', () => {
+  if (isDragging) {
+    isDragging = false;
+    save();
+  }
+});
+
+function startDrag(dateStr) {
   if (activePerson === null) { document.getElementById('nameInput').focus(); return; }
   const name = people[activePerson].name;
   if (!availability[name]) availability[name] = [];
+  
+  isDragging = true;
+  dragMode = !availability[name].includes(dateStr);
+  applyDrag(dateStr);
+}
+
+function dragOver(dateStr) {
+  if (isDragging) applyDrag(dateStr);
+}
+
+function applyDrag(dateStr) {
+  if (activePerson === null) return;
+  const name = people[activePerson].name;
   const arr = availability[name];
-  const i = arr.indexOf(dateStr);
-  if (i >= 0) arr.splice(i, 1); else arr.push(dateStr);
-  save();
-  render();
+  const idx = arr.indexOf(dateStr);
+  
+  let changed = false;
+  if (dragMode && idx === -1) { arr.push(dateStr); changed = true; }
+  else if (!dragMode && idx !== -1) { arr.splice(idx, 1); changed = true; }
+  
+  if (changed) {
+    render();
+  }
 }
 
 function render() {
@@ -484,8 +533,8 @@ function render() {
       const idx = people.indexOf(p);
       return `<div class="dot" style="background:${colorFor(idx).dot}"></div>`;
     }).join('');
-    const click = isPast ? '' : `onclick="toggleDay('${ds}')"`;
-    html += `<div class="${cls}" ${click}>
+    const click = isPast ? '' : `onmousedown="startDrag('${ds}')" onmouseenter="dragOver('${ds}')"`;
+    html += `<div class="${cls}" ${click} draggable="false">
       <span class="day-num">${d}</span>
       <div class="dot-row">${dots}</div>
     </div>`;
