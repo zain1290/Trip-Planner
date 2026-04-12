@@ -343,7 +343,10 @@
       <div class="sync-dot" id="syncDot"></div>
       <span id="syncLabel">Not connected</span>
     </div>
-    <button class="clear-btn" onclick="clearAll()">Reset everything</button>
+    <div style="display: flex; gap: 1rem;">
+      <button class="clear-btn" onclick="clearMe()" id="clearMeBtn" style="display:none">Reset my dates</button>
+      <button class="clear-btn" onclick="clearAll()">Reset everything</button>
+    </div>
   </div>
 </div>
 
@@ -444,6 +447,14 @@ function selectPerson(idx) {
 function clearAll() {
   if (!confirm('Reset all names and availability for everyone?')) return;
   people = []; activePerson = null; availability = {};
+  save(); render();
+}
+
+function clearMe() {
+  if (activePerson === null) return;
+  const name = people[activePerson].name;
+  if (!confirm(`Reset all dates for ${name}?`)) return;
+  availability[name] = [];
   save(); render();
 }
 
@@ -555,6 +566,11 @@ function render() {
   else if (people.length === 0) tip.textContent = 'Add your name above, then click days you\'re free.';
   else if (activePerson === null) tip.textContent = 'Select your name above to mark or change your availability.';
   else tip.textContent = `Marking days for ${people[activePerson].name} — tap to toggle.`;
+
+  const clearMeBtn = document.getElementById('clearMeBtn');
+  if (clearMeBtn) {
+    clearMeBtn.style.display = activePerson !== null ? 'inline-block' : 'none';
+  }
 
   renderLegend(todayStr, daysInMonth);
 }
