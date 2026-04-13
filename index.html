@@ -344,6 +344,7 @@
       <span id="syncLabel">Not connected</span>
     </div>
     <div style="display: flex; gap: 1rem;">
+      <button class="clear-btn" onclick="deleteMe()" id="deleteMeBtn" style="display:none; color: #D4537E;">Delete me</button>
       <button class="clear-btn" onclick="clearMe()" id="clearMeBtn" style="display:none">Reset my dates</button>
       <button class="clear-btn" onclick="clearAll()">Reset everything</button>
     </div>
@@ -453,6 +454,17 @@ function clearMe() {
   const name = people[activePerson].name;
   if (!confirm(`Reset all dates for ${name}?`)) return;
   availability[name] = [];
+  save(); render();
+}
+
+function deleteMe() {
+  if (activePerson === null) return;
+  const name = people[activePerson].name;
+  if (!confirm(`Delete ${name} and all their dates?`)) return;
+  
+  delete availability[name];
+  people.splice(activePerson, 1);
+  activePerson = null;
   save(); render();
 }
 
@@ -568,6 +580,11 @@ function render() {
   const clearMeBtn = document.getElementById('clearMeBtn');
   if (clearMeBtn) {
     clearMeBtn.style.display = activePerson !== null ? 'inline-block' : 'none';
+  }
+
+  const deleteMeBtn = document.getElementById('deleteMeBtn');
+  if (deleteMeBtn) {
+    deleteMeBtn.style.display = activePerson !== null ? 'inline-block' : 'none';
   }
 
   renderLegend(todayStr, daysInMonth);
