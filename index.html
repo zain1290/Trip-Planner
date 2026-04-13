@@ -591,61 +591,85 @@ function render() {
 }
 
 function renderLegend(todayStr, daysInMonth) {
-  if (people.length < 2) { document.getElementById('legend').style.display = 'none'; return; }
-  
-  const otherPeople = activePerson !== null ? people.filter((p, i) => i !== activePerson) : people;
-  if (otherPeople.length === 0) { document.getElementById('legend').style.display = 'none'; return; }
+  if (people.length < 1) { document.getElementById('legend').style.display = 'none'; return; }
 
-  // Extract all future dates where ALL other people are free across all months
-  let allFreeDates = [];
-  const someOtherPersonStr = otherPeople[0].name;
-  if (!availability[someOtherPersonStr]) { document.getElementById('legend').style.display = 'none'; return; }
-  
-  const potentialDates = availability[someOtherPersonStr].filter(d => d >= todayStr);
-  for (const ds of potentialDates) {
-    if (otherPeople.every(p => (availability[p.name] || []).includes(ds))) {
-      allFreeDates.push(ds);
-    }
-  }
+  // 1. Get all future dates that have at least 1 person free
+  let futureDates = [];
+  // Since we don't know the bounds of all free dates easily without scanning, 
+  // let's collect all unique dates from all people.
+  let allDatesSet = new Set();
+  people.forEach(p => {
+    (availability[p.name] || []).forEach(d => {
+      if (d >= todayStr) allDatesSet.add(d);
+    });
+  });
 
-  if (allFreeDates.length === 0) {
+  let allDates = Array.from(allDatesSet).sort();
+  if (allDates.length === 0) {
     document.getElementById('legend').style.display = 'none';
     return;
   }
 
-  // Sort dates chronologically
-  allFreeDates.sort();
-
-  // Group dates into contiguous periods
+  // 2. Group contiguous dates that have the EXACT SAME set of people available
   let periods = [];
-  let currentPeriod = [allFreeDates[0]];
+  let currentPeriod = [];
+  let currentPeopleGroup = "";
 
-  for (let i = 1; i < allFreeDates.length; i++) {
-    const prevDate = new Date(allFreeDates[i-1]);
-    const currDate = new Date(allFreeDates[i]);
-    const diffDays = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
+  const getPeopleNames = (d) => {
+    return people.filter(p => (availability[p.name] || []).includes(d)).map(p => p.name).sort().join(',');
+  };
+
+  for (let i = 0; i < allDates.length; i++) {
+    const ds = allDates[i];
+    const peopleGroup = getPeopleNames(ds);
     
-    if (diffDays === 1) {
-      currentPeriod.push(allFreeDates[i]);
+    if (currentPeriod.length === 0) {
+      currentPeriod.push(ds);
+      currentPeopleGroup = peopleGroup;
     } else {
-      periods.push(currentPeriod);
-      currentPeriod = [allFreeDates[i]];
+      const prevDate = new Date(currentPeriod[currentPeriod.length - 1]);
+      const currDate = new Date(ds);
+      const diffDays = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1 && peopleGroup === currentPeopleGroup) {
+        currentPeriod.push(ds);
+      } else {
+        periods.push({
+          dates: currentPeriod,
+          peopleNames: currentPeopleGroup.split(',').filter(x => x)
+        });
+        currentPeriod = [ds];
+        currentPeopleGroup = peopleGroup;
+      }
     }
   }
-  periods.push(currentPeriod);
+  if (currentPeriod.length > 0) {
+    periods.push({
+      dates: currentPeriod,
+      peopleNames: currentPeopleGroup.split(',').filter(x => x)
+    });
+  }
 
-  // Sort periods by duration (longest first)
-  periods.sort((a, b) => b.length - a.length);
+  // Filter out periods with 0 people (shouldn't happen based on how we built it)
+  periods = periods.filter(p => p.peopleNames.length > 0);
 
-  // Take top 4
-  const top = periods.slice(0, 4);
+  // 3. Sort by duration (longest first), then by number of people (most people first)
+  periods.sort((a, b) => {
+    if (b.dates.length !== a.dates.length) {
+      return b.dates.length - a.dates.length;
+    }
+    return b.peopleNames.length - a.peopleNames.length;
+  });
+
+  // Take top 3
+  const top = periods.slice(0, 3);
 
   if (!top.length) { document.getElementById('legend').style.display = 'none'; return; }
   document.getElementById('legend').style.display = '';
 
   const legendTitle = document.querySelector('.legend-title');
   if (legendTitle) {
-    legendTitle.textContent = activePerson !== null ? "Top periods when everyone else is free:" : "Top periods when everyone is free:";
+    legendTitle.textContent = "Top longest periods available:";
   }
 
   const fmt = ds => {
@@ -654,19 +678,22 @@ function renderLegend(todayStr, daysInMonth) {
   };
 
   document.getElementById('legendGrid').innerHTML = top.map(period => {
-    const start = period[0];
-    const end = period[period.length - 1];
-    const label = period.length === 1 ? fmt(start) : `${fmt(start)} - ${fmt(end)}`;
+    const start = period.dates[0];
+    const end = period.dates[period.dates.length - 1];
+    const label = period.dates.length === 1 ? fmt(start) : `${fmt(start)} - ${fmt(end)}`;
     
-    const dots = otherPeople.map(p => {
+    const ppl = people.filter(p => period.peopleNames.includes(p.name));
+    const dots = ppl.map(p => {
       const idx = people.indexOf(p);
       return `<div class="dot" style="background:${colorFor(idx).dot};width:7px;height:7px" title="${p.name}"></div>`;
     }).join('');
 
     return `<div class="legend-item" style="grid-column: span 2;">
-      <div style="display:flex;gap:3px;margin-right:8px;">${dots}</div>
-      <span style="font-weight:500;">${label}</span>
-      <span style="margin-left:auto;font-size:11px;color:var(--text2)">${period.length} day${period.length > 1 ? 's' : ''}</span>
+      <div style="display:flex;gap:3px;margin-right:8px;flex-wrap:wrap;max-width:50px;">${dots}</div>
+      <div style="display:flex;flex-direction:column;">
+        <span style="font-weight:500;">${label}</span>
+        <span style="font-size:11px;color:var(--text2)">${period.dates.length} day${period.dates.length > 1 ? 's' : ''} • ${ppl.length} person${ppl.length > 1 ? 's' : ''}</span>
+      </div>
     </div>`;
   }).join('');
 }
