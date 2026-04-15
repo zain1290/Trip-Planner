@@ -661,8 +661,8 @@ function renderLegend(todayStr, daysInMonth) {
     return b.peopleNames.length - a.peopleNames.length;
   });
 
-  // Take top 3
-  const top = periods.slice(0, 3);
+  // Take top 9
+  const top = periods.slice(0, 9);
 
   if (!top.length) { document.getElementById('legend').style.display = 'none'; return; }
   document.getElementById('legend').style.display = '';
